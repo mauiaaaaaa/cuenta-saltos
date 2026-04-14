@@ -1,95 +1,109 @@
 <script>
-let count = 0;
+document.addEventListener("DOMContentLoaded", () => {
 
-let lastX = 0, lastY = 0, lastZ = 0;
-let calibrated = false;
+  let count = 0;
 
-let lastJumpTime = 0;
-const COOLDOWN = 700; // ⏱ 0.70 segundos
+  let lastX = 0, lastY = 0, lastZ = 0;
+  let calibrated = false;
 
-let buffer = [];
-const BUFFER_SIZE = 5;
+  let lastJumpTime = 0;
+  const COOLDOWN = 700;
 
-let threshold = 25;
+  let buffer = [];
+  const BUFFER_SIZE = 5;
 
-const counterEl = document.getElementById("counter");
+  let threshold = 25;
 
-function updateCounter() {
-  if (counterEl) counterEl.textContent = count;
-}
+  const counterEl = document.getElementById("counter");
 
-function getSmoothedDelta(delta) {
-  buffer.push(delta);
-  if (buffer.length > BUFFER_SIZE) buffer.shift();
-
-  let sum = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    sum += buffer[i];
+  function updateCounter() {
+    if (counterEl) {
+      counterEl.textContent = count;
+    }
   }
 
-  return sum / buffer.length;
-}
+  function getSmoothedDelta(delta) {
+    buffer.push(delta);
+    if (buffer.length > BUFFER_SIZE) buffer.shift();
 
-function handleMotion(event) {
-  try {
-    const acc = event.accelerationIncludingGravity;
-    if (!acc) return;
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      sum += buffer[i];
+    }
 
-    const x = acc.x || 0;
-    const y = acc.y || 0;
-    const z = acc.z || 0;
+    return sum / buffer.length;
+  }
 
-    if (!calibrated) {
+  function handleMotion(event) {
+    try {
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
+
+      if (!calibrated) {
+        lastX = x;
+        lastY = y;
+        lastZ = z;
+        calibrated = true;
+        return;
+      }
+
+      const delta =
+        Math.abs(x - lastX) +
+        Math.abs(y - lastY) +
+        Math.abs(z - lastZ);
+
+      const smoothDelta = getSmoothedDelta(delta);
+      const now = Date.now();
+
+      if (smoothDelta > threshold && (now - lastJumpTime > COOLDOWN)) {
+        count++;
+        lastJumpTime = now;
+        updateCounter();
+      }
+
       lastX = x;
       lastY = y;
       lastZ = z;
-      calibrated = true;
-      return;
+
+    } catch (e) {
+      console.log("motion ignored");
     }
+  }
 
-    const delta =
-      Math.abs(x - lastX) +
-      Math.abs(y - lastY) +
-      Math.abs(z - lastZ);
+  const startBtn = document.getElementById("start");
+  const resetBtn = document.getElementById("reset");
 
-    const smoothDelta = getSmoothedDelta(delta);
-    const now = Date.now();
+  if (startBtn) {
+    startBtn.addEventListener("click", async () => {
+      try {
+        calibrated = false;
+        buffer = [];
 
-    if (smoothDelta > threshold && (now - lastJumpTime > COOLDOWN)) {
-      count++;
-      lastJumpTime = now;
+        if (typeof DeviceMotionEvent.requestPermission === "function") {
+          const response = await DeviceMotionEvent.requestPermission();
+          if (response !== "granted") return;
+        }
+
+        window.addEventListener("devicemotion", handleMotion);
+
+      } catch (e) {
+        console.log("start error ignored");
+      }
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      count = 0;
       updateCounter();
-    }
-
-    lastX = x;
-    lastY = y;
-    lastZ = z;
-
-  } catch (e) {
-    // 🔒 nunca rompe la página
-    console.log("motion error ignored");
+    });
   }
-}
 
-document.getElementById("start").addEventListener("click", async () => {
-  try {
-    calibrated = false;
-    buffer = [];
-
-    if (typeof DeviceMotionEvent.requestPermission === "function") {
-      const response = await DeviceMotionEvent.requestPermission();
-      if (response !== "granted") return;
-    }
-
-    window.addEventListener("devicemotion", handleMotion);
-
-  } catch (e) {
-    console.log("start error ignored");
-  }
-});
-
-document.getElementById("reset").addEventListener("click", () => {
-  count = 0;
   updateCounter();
+
 });
 </script>
