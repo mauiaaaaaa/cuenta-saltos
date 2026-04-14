@@ -46,7 +46,9 @@
   <script>
     let count = 0;
     let lastX = null, lastY = null, lastZ = null;
-    let threshold = 15;
+    let threshold = 20;  // Umbral más alto para reducir la sensibilidad
+    let lastShakeTime = 0;  // Guardar el tiempo de la última sacudida
+    const minShakeInterval = 1500;  // Intervalo mínimo de 1.5 segundos entre sumas
 
     const counterEl = document.getElementById("counter");
 
@@ -63,11 +65,15 @@
       let y = acc.y;
       let z = acc.z;
 
+      // Calcular la diferencia de aceleración
       if (lastX !== null) {
         let delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
 
-        if (delta > threshold) {
+        // Si la diferencia de aceleración es mayor que el umbral y ha pasado el tiempo mínimo
+        let currentTime = Date.now();
+        if (delta > threshold && (currentTime - lastShakeTime) > minShakeInterval) {
           count++;
+          lastShakeTime = currentTime;  // Actualizar el tiempo de la última sacudida
           updateCounter();
         }
       }
