@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Contador de Agitaciones</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #111;
+      color: #fff;
+      padding-top: 50px;
+    }
+    h1 {
+      font-size: 2em;
+    }
+    #counter {
+      font-size: 5em;
+      margin: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1.2em;
+      margin: 10px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #start {
+      background: #28a745;
+      color: white;
+    }
+    #reset {
+      background: #dc3545;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📱 Contador de Agitaciones</h1>
+  <div id="counter">0</div>
+  <button id="start">Iniciar</button>
+  <button id="reset">Reset</button>
+
+  <script>
+    let count = 0;
+    let lastX = null, lastY = null, lastZ = null;
+    let threshold = 15;
+
+    const counterEl = document.getElementById("counter");
+
+    function updateCounter() {
+      counterEl.textContent = count;
+    }
+
+    function handleMotion(event) {
+      const acc = event.accelerationIncludingGravity;
+
+      if (!acc) return;
+
+      let x = acc.x;
+      let y = acc.y;
+      let z = acc.z;
+
+      if (lastX !== null) {
+        let delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
+
+        if (delta > threshold) {
+          count++;
+          updateCounter();
+        }
+      }
+
+      lastX = x;
+      lastY = y;
+      lastZ = z;
+    }
+
+    document.getElementById("start").addEventListener("click", async () => {
+      // iOS necesita permiso
+      if (typeof DeviceMotionEvent.requestPermission === "function") {
+        try {
+          const response = await DeviceMotionEvent.requestPermission();
+          if (response === "granted") {
+            window.addEventListener("devicemotion", handleMotion);
+          } else {
+            alert("Permiso denegado");
+          }
+        } catch (e) {
+          alert("Error al pedir permiso");
+        }
+      } else {
+        window.addEventListener("devicemotion", handleMotion);
+      }
+    });
+
+    document.getElementById("reset").addEventListener("click", () => {
+      count = 0;
+      updateCounter();
+    });
+  </script>
+
+</body>
+</html>
