@@ -1,111 +1,111 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Contador de Agitaciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #111;
-      color: #fff;
-      padding-top: 50px;
-    }
-    h1 {
-      font-size: 2em;
-    }
-    #counter {
-      font-size: 5em;
-      margin: 20px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 1.2em;
-      margin: 10px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-    #start {
-      background: #28a745;
-      color: white;
-    }
-    #reset {
-      background: #dc3545;
-      color: white;
-    }
-  </style>
-</head>
-<body>
+<script>
+  let count = 0;
 
-  <h1>📱 Contador de Agitaciones</h1>
-  <div id="counter">0</div>
-  <button id="start">Iniciar</button>
-  <button id="reset">Reset</button>
+  let lastX = 0, lastY = 0, lastZ = 0;
+  let calibrated = false;
 
-  <script>
-    let count = 0;
-    let lastX = null, lastY = null, lastZ = null;
-    let threshold = 20;  // Umbral más alto para reducir la sensibilidad
-    let lastShakeTime = 0;  // Guardar el tiempo de la última sacudida
-    const minShakeInterval = 1500;  // Intervalo mínimo de 1.5 segundos entre sumas
+  let lastJumpTime = 0;
+  const COOLDOWN = 1000; // ⏱ 1 segundo (ANTES 1500)
 
-    const counterEl = document.getElementById("counter");
+  let buffer = [];
+  const BUFFER_SIZE = 5;
 
-    function updateCounter() {
-      counterEl.textContent = count;
-    }
+  let threshold = 25;
 
-    function handleMotion(event) {
-      const acc = event.accelerationIncludingGravity;
+  const counterEl = document.getElementById("counter");
 
-      if (!acc) return;
+  function updateCounter() {
+    counterEl.textContent = count;
+  }
 
-      let x = acc.x;
-      let y = acc.y;
-      let z = acc.z;
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = 10;
+  slider.max = 50;
+  slider.value = threshold;
+  slider.style.marginTop = "20px";
 
-      // Calcular la diferencia de aceleración
-      if (lastX !== null) {
-        let delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
+  const label = document.createElement("div");
+  label.innerHTML = "Sensibilidad";
+  label.style.marginTop = "20px";
 
-        // Si la diferencia de aceleración es mayor que el umbral y ha pasado el tiempo mínimo
-        let currentTime = Date.now();
-        if (delta > threshold && (currentTime - lastShakeTime) > minShakeInterval) {
-          count++;
-          lastShakeTime = currentTime;  // Actualizar el tiempo de la última sacudida
-          updateCounter();
-        }
-      }
+  document.body.appendChild(label);
+  document.body.appendChild(slider);
 
-      lastX = x;
-      lastY = y;
-      lastZ = z;
+  slider.addEventListener("input", () => {
+    threshold = parseInt(slider.value);
+  });
+
+  function getSmoothedDelta(delta) {
+    buffer.push(delta);
+    if (buffer.length > BUFFER_SIZE) buffer.shift();
+
+    let sum = buffer.reduce((a, b) => a + b, 0);
+    return sum / buffer.length;
+  }
+
+  function calibrate(x, y, z) {
+    lastX = x;
+    lastY = y;
+    lastZ = z;
+    calibrated = true;
+  }
+
+  function handleMotion(event) {
+    const acc = event.accelerationIncludingGravity;
+    if (!acc) return;
+
+    let x = acc.x;
+    let y = acc.y;
+    let z = acc.z;
+
+    if (!calibrated) {
+      calibrate(x, y, z);
+      return;
     }
 
-    document.getElementById("start").addEventListener("click", async () => {
-      // iOS necesita permiso
-      if (typeof DeviceMotionEvent.requestPermission === "function") {
-        try {
-          const response = await DeviceMotionEvent.requestPermission();
-          if (response === "granted") {
-            window.addEventListener("devicemotion", handleMotion);
-          } else {
-            alert("Permiso denegado");
-          }
-        } catch (e) {
-          alert("Error al pedir permiso");
-        }
-      } else {
-        window.addEventListener("devicemotion", handleMotion);
-      }
-    });
+    let delta =
+      Math.abs(x - lastX) +
+      Math.abs(y - lastY) +
+      Math.abs(z - lastZ);
 
-    document.getElementById("reset").addEventListener("click", () => {
-      count = 0;
+    let smoothDelta = getSmoothedDelta(delta);
+
+    const now = Date.now();
+
+    if (smoothDelta > threshold && (now - lastJumpTime > COOLDOWN)) {
+      count++;
+      lastJumpTime = now;
       updateCounter();
-    });
-  </script>
+    }
 
-</body>
-</html>
+    lastX = x;
+    lastY = y;
+    lastZ = z;
+  }
+
+  document.getElementById("start").addEventListener("click", async () => {
+    calibrated = false;
+    buffer = [];
+
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
+      try {
+        const response = await DeviceMotionEvent.requestPermission();
+        if (response === "granted") {
+          window.addEventListener("devicemotion", handleMotion);
+        } else {
+          alert("Permiso denegado");
+        }
+      } catch (e) {
+        alert("Error al pedir permiso");
+      }
+    } else {
+      window.addEventListener("devicemotion", handleMotion);
+    }
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    count = 0;
+    updateCounter();
+  });
+</script>
